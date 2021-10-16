@@ -12,6 +12,6 @@ setup(
     author_email='leonidms@gmail.com',
     url='NaN',
     extras_require=dict(tests=['pytest']),
-    packages=find_packages(where='src'),
-    package_dir={'': 'src'}
+    packages=find_packages(where="src"),
+    package_dir={"": "src"},
 )
