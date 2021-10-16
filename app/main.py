@@ -8,6 +8,8 @@ from binance.client import AsyncClient
 from binance.streams import ReconnectingWebsocket
 from dotenv import load_dotenv
 
+from timer import Timer
+
 load_dotenv()
 
 logging.basicConfig(
@@ -21,6 +23,7 @@ SYMBOL_PAIR = os.getenv('SYMBOL_PAIR', 'BTCUSDT')
 
 best_ask_price = decimal.Decimal()
 best_bid_price = decimal.Decimal()
+
 
 async def handle_ticker(ticker_stream: ReconnectingWebsocket) -> None:
     async with ticker_stream as stream:
@@ -50,6 +53,10 @@ async def handle_trades(trades_stream: ReconnectingWebsocket) -> None:
             logging.debug(f'TRADE/PRICE price={price!r} ask_spread={ask_spread!r} bid_spread={bid_spread!r}')
 
 
+async def tick_handler():
+    logging.warning('echo!')
+
+
 async def main() -> int:
     logging.info('Binance API Key: %s...%s' % (API_KEY[:3], API_KEY[-3:]))
     logging.info(f'Symbol pair: {SYMBOL_PAIR}')
@@ -58,10 +65,17 @@ async def main() -> int:
 
     symbol_ticker_socket = binance_ws.symbol_book_ticker_socket(SYMBOL_PAIR)
     trade_socket = binance_ws.trade_socket(SYMBOL_PAIR)
-    await asyncio.gather(handle_ticker(symbol_ticker_socket), handle_trades(trade_socket), )
+    timer = Timer(0.005, tick_handler)
 
-    await binance_api_client.close_connection()
-
+    try:
+        await asyncio.gather(
+            handle_ticker(symbol_ticker_socket),
+            handle_trades(trade_socket),
+            timer.start(),
+        )
+    finally:
+        await binance_api_client.close_connection()
+        timer.cancel()
     return 0
 
 
