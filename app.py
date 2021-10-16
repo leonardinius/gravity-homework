@@ -1,8 +1,7 @@
 import asyncio
-import functools
+import decimal
 import logging
 import os
-import signal
 
 from binance import BinanceSocketManager
 from binance.client import AsyncClient
@@ -11,26 +10,44 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+logging.basicConfig(
+    level=os.getenv('LOG_LEVEL', 'INFO'),
+    format='%(asctime)s - %(levelname)s - %(message)s')
+logging.getLogger('websockets').setLevel(logging.WARNING)
 
 API_KEY = os.environ['BINANCE_API_KEY']
 API_SECRET = os.environ['BINANCE_API_SECRET']
 SYMBOL_PAIR = os.getenv('SYMBOL_PAIR', 'BTCUSDT')
-logging.basicConfig(level=os.getenv('LOG_LEVEL', 'INFO'), format='%(asctime)s - %(levelname)s - %(message)s')
-logging.getLogger('websockets').setLevel(logging.WARNING)
 
+best_ask_price = decimal.Decimal()
+best_bid_price = decimal.Decimal()
 
 async def handle_ticker(ticker_stream: ReconnectingWebsocket) -> None:
     async with ticker_stream as stream:
         while True:
             res = await stream.recv()
-            logging.debug(f'TICKER {res!r}')
+            logging.debug(f'TICKER/JSON  {res!r}')
+
+            global best_ask_price
+            global best_bid_price
+            best_ask_price = decimal.Decimal(res['a'])
+            best_bid_price = decimal.Decimal(res['b'])
+            spread = (best_ask_price - best_bid_price).__abs__()
+            logging.debug(f'TICKER/PRICE ask={best_ask_price!r} bid={best_bid_price!r} spread={spread!r}')
 
 
 async def handle_trades(trades_stream: ReconnectingWebsocket) -> None:
     async with trades_stream as stream:
         while True:
             res = await stream.recv()
-            logging.debug(f'TRADE {res!r}')
+            logging.debug(f'TRADE/JSON {res!r}')
+
+            global best_ask_price
+            global best_bid_price
+            price = decimal.Decimal(res['p'])
+            ask_spread = best_ask_price.__sub__(price)
+            bid_spread = best_bid_price.__sub__(price)
+            logging.debug(f'TRADE/PRICE price={price!r} ask_spread={ask_spread!r} bid_spread={bid_spread!r}')
 
 
 async def main() -> int:
