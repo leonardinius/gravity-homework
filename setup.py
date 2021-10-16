@@ -11,6 +11,7 @@ setup(
     author='Leo',
     author_email='leonidms@gmail.com',
     url='NaN',
-    license=license,
-    packages=find_packages(exclude=('tests'))
+    extras_require=dict(tests=['pytest']),
+    packages=find_packages(where='src'),
+    package_dir={'': 'src'}
 )
