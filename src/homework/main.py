@@ -8,7 +8,7 @@ from binance.client import AsyncClient
 from binance.streams import ReconnectingWebsocket
 from dotenv import load_dotenv
 
-from timer import Timer
+from aiotimer import Timer
 
 load_dotenv()
 
