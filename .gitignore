@@ -1,3 +1,6 @@
 .idea/
 venv/
 .env
+## main...origin/main [ahead 1]
+src/homework.egg-info/
+src/homework/__pycache__/
