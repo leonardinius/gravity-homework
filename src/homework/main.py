@@ -1,5 +1,5 @@
 import asyncio
-import decimal
+from decimal import Decimal
 import logging
 import os
 
@@ -21,8 +21,8 @@ API_KEY = os.environ['BINANCE_API_KEY']
 API_SECRET = os.environ['BINANCE_API_SECRET']
 SYMBOL_PAIR = os.getenv('SYMBOL_PAIR', 'BTCUSDT')
 
-best_ask_price = decimal.Decimal()
-best_bid_price = decimal.Decimal()
+best_bid_price = Decimal('0')
+best_ask_price = Decimal('0')
 
 
 async def handle_ticker(ticker_stream: ReconnectingWebsocket) -> None:
@@ -31,12 +31,12 @@ async def handle_ticker(ticker_stream: ReconnectingWebsocket) -> None:
             res = await stream.recv()
             logging.debug(f'TICKER/JSON  {res!r}')
 
-            global best_ask_price
             global best_bid_price
-            best_ask_price = decimal.Decimal(res['a'])
-            best_bid_price = decimal.Decimal(res['b'])
-            spread = (best_ask_price - best_bid_price).__abs__()
-            logging.debug(f'TICKER/PRICE ask={best_ask_price!r} bid={best_bid_price!r} spread={spread!r}')
+            global best_ask_price
+            best_bid_price = Decimal(res['b'])
+            best_ask_price = Decimal(res['a'])
+            spread = best_ask_price - best_bid_price
+            logging.debug(f'TICKER/PRICE bid={best_bid_price!r} ask={best_ask_price!r} spread={spread!r}')
 
 
 async def handle_trades(trades_stream: ReconnectingWebsocket) -> None:
@@ -45,16 +45,16 @@ async def handle_trades(trades_stream: ReconnectingWebsocket) -> None:
             res = await stream.recv()
             logging.debug(f'TRADE/JSON {res!r}')
 
-            global best_ask_price
             global best_bid_price
-            price = decimal.Decimal(res['p'])
-            ask_spread = best_ask_price.__sub__(price)
-            bid_spread = best_bid_price.__sub__(price)
-            logging.debug(f'TRADE/PRICE price={price!r} ask_spread={ask_spread!r} bid_spread={bid_spread!r}')
+            global best_ask_price
+            price = Decimal(res['p'])
+            bid_spread = best_bid_price - price
+            ask_spread = best_ask_price - price
+            logging.debug(f'TRADE/PRICE price={price!r} bid_spread={bid_spread!r} ask_spread={ask_spread!r}')
 
 
-async def tick_handler():
-    logging.warning('echo!')
+async def timer_handler():
+    logging.debug('echo!')
 
 
 async def main() -> int:
@@ -65,13 +65,13 @@ async def main() -> int:
 
     symbol_ticker_socket = binance_ws.symbol_book_ticker_socket(SYMBOL_PAIR)
     trade_socket = binance_ws.trade_socket(SYMBOL_PAIR)
-    timer = Timer(0.005, tick_handler)
+    timer = Timer(0.005, timer_handler)
 
     try:
         await asyncio.gather(
             handle_ticker(symbol_ticker_socket),
             handle_trades(trade_socket),
-            timer.start(),
+            # timer.start(),
         )
     finally:
         await binance_api_client.close_connection()
