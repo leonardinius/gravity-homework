@@ -13,11 +13,11 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s')
 logging.getLogger('websockets').setLevel(logging.WARNING)
 
-API_KEY = os.environ['BINANCE_API_KEY']
-API_SECRET = os.environ['BINANCE_API_SECRET']
-SYMBOL_PAIR = os.getenv('SYMBOL_PAIR', 'BTCUSDT')
-
-MAIN_APP = MainApp(API_KEY, API_SECRET, SYMBOL_PAIR)
+MAIN_APP = MainApp(
+    binance_api_key=os.environ['BINANCE_API_KEY'],
+    binance_api_secret=os.environ['BINANCE_API_SECRET'],
+    pair=os.getenv('SYMBOL_PAIR', 'BTCUSDT')
+)
 
 
 async def main() -> int:

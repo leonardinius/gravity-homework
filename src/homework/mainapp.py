@@ -17,7 +17,7 @@ class MainApp:
     _best_ask_price: Decimal = Decimal('0')
 
     def __init__(self, binance_api_key: str, binance_api_secret: str, pair: str) -> None:
-        self._binance_api_key = binance_api_secret
+        self._binance_api_key = binance_api_key
         self._binance_api_secret = binance_api_secret
         self._pair = pair
         self._pair = pair
@@ -61,7 +61,10 @@ class MainApp:
     async def run(self) -> None:
         logging.info('Binance API Key: %s...%s' % (self._binance_api_key[:3], self._binance_api_key[-3:]))
         logging.info(f'Symbol pair: {self.pair()}')
-        binance_api_client = await AsyncClient.create()
+        binance_api_client = await AsyncClient.create(
+            api_key=self._binance_api_key,
+            api_secret=self._binance_api_secret,
+        )
         binance_ws = BinanceSocketManager(binance_api_client)
 
         symbol_ticker_socket = binance_ws.symbol_book_ticker_socket(self.pair())
