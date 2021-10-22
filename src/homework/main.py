@@ -2,12 +2,8 @@ import asyncio
 import logging
 import os
 
-from binance import BinanceSocketManager
-from binance.client import AsyncClient
-from binance.streams import ReconnectingWebsocket
 from dotenv import load_dotenv
 
-from aiotimer import Timer
 from homework.mainapp import MainApp
 
 load_dotenv()
@@ -21,48 +17,11 @@ API_KEY = os.environ['BINANCE_API_KEY']
 API_SECRET = os.environ['BINANCE_API_SECRET']
 SYMBOL_PAIR = os.getenv('SYMBOL_PAIR', 'BTCUSDT')
 
-MAIN_APP = MainApp(SYMBOL_PAIR)
-
-
-async def handle_ticker(ticker_stream: ReconnectingWebsocket) -> None:
-    async with ticker_stream as stream:
-        while True:
-            res = await stream.recv()
-            logging.debug(f'TICKER/JSON  {res!r}')
-            await MAIN_APP.handle_ticker(res)
-
-
-async def handle_trades(trades_stream: ReconnectingWebsocket) -> None:
-    async with trades_stream as stream:
-        while True:
-            res = await stream.recv()
-            logging.debug(f'TRADE/JSON {res!r}')
-            await MAIN_APP.handle_trades(res)
-
-
-async def timer_handler():
-    await MAIN_APP.handle_timer_tick()
+MAIN_APP = MainApp(API_KEY, API_SECRET, SYMBOL_PAIR)
 
 
 async def main() -> int:
-    logging.info('Binance API Key: %s...%s' % (API_KEY[:3], API_KEY[-3:]))
-    logging.info(f'Symbol pair: {SYMBOL_PAIR}')
-    binance_api_client = await AsyncClient.create()
-    binance_ws = BinanceSocketManager(binance_api_client)
-
-    symbol_ticker_socket = binance_ws.symbol_book_ticker_socket(SYMBOL_PAIR)
-    trade_socket = binance_ws.trade_socket(SYMBOL_PAIR)
-    timer = Timer(0.005, timer_handler)
-
-    try:
-        await asyncio.gather(
-            handle_ticker(symbol_ticker_socket),
-            handle_trades(trade_socket),
-            timer.start(),
-        )
-    finally:
-        await binance_api_client.close_connection()
-        timer.cancel()
+    await MAIN_APP.run()
     return 0
 
 

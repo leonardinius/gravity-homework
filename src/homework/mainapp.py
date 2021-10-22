@@ -1,13 +1,24 @@
+import asyncio
 import logging
 from decimal import Decimal
 
+from binance import BinanceSocketManager
+from binance.client import AsyncClient
+from binance.streams import ReconnectingWebsocket
+
+from aiotimer import Timer
+
 
 class MainApp:
+    _binance_api_key: str
+    _binance_api_secret: str
     _pair: str
     _best_bid_price: Decimal = Decimal('0')
     _best_ask_price: Decimal = Decimal('0')
 
-    def __init__(self, pair: str) -> None:
+    def __init__(self, binance_api_key: str, binance_api_secret: str, pair: str) -> None:
+        self._binance_api_key = binance_api_secret
+        self._binance_api_secret = binance_api_secret
         self._pair = pair
         self._pair = pair
 
@@ -28,6 +39,44 @@ class MainApp:
 
     async def handle_timer_tick(self) -> None:
         logging.debug('Hello!')
+        pass
+
+    async def _handle_ticker(self, ticker_stream: ReconnectingWebsocket) -> None:
+        async with ticker_stream as stream:
+            while True:
+                res = await stream.recv()
+                logging.debug(f'TICKER/JSON {res!r}')
+                await self.handle_ticker(res)
+
+    async def _handle_trades(self, trades_stream: ReconnectingWebsocket) -> None:
+        async with trades_stream as stream:
+            while True:
+                res = await stream.recv()
+                logging.debug(f'TRADE/JSON {res!r}')
+                await self.handle_trades(res)
+
+    async def _timer_handler(self):
+        await self.handle_timer_tick()
+
+    async def run(self) -> None:
+        logging.info('Binance API Key: %s...%s' % (self._binance_api_key[:3], self._binance_api_key[-3:]))
+        logging.info(f'Symbol pair: {self.pair()}')
+        binance_api_client = await AsyncClient.create()
+        binance_ws = BinanceSocketManager(binance_api_client)
+
+        symbol_ticker_socket = binance_ws.symbol_book_ticker_socket(self.pair())
+        trade_socket = binance_ws.trade_socket(self.pair())
+        timer = Timer(0.005, self._timer_handler)
+
+        try:
+            await asyncio.gather(
+                self._handle_ticker(symbol_ticker_socket),
+                self._handle_trades(trade_socket),
+                timer.start(),
+            )
+        finally:
+            await binance_api_client.close_connection()
+            timer.cancel()
 
 # https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md#individual-symbol-book-ticker-streams
 #

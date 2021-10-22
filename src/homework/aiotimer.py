@@ -17,7 +17,7 @@ class Timer:
 
     async def _tick(self):
         while not self._task.cancelled():
-            time.sleep(self._timeout)
+            await asyncio.sleep(self._timeout)
             await self._callback()
 
     def cancel(self):
