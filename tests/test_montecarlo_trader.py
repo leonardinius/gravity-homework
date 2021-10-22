@@ -53,6 +53,7 @@ def test_smoke_test_percentage_calculations():
                    round(trader.calculate_percentage(price_depth=Decimal('0.0001'), side=Side.ASK), 2),
                ]),
            ] == [
+               # (depth ratio, [bid occurrence %, ask occurrence%])
                ('-0.0003', [0.17, 0.17]),
                ('-0.0002', [0.33, 0.33]),
                ('-0.0001', [0.5, 0.5]),
@@ -62,8 +63,8 @@ def test_smoke_test_percentage_calculations():
            ]
 
 
-def test_select_spread():
-    # TODO: extract this logic to separate layer
+def test_select_best_depth():
+    # TODO: extract this logic to separate layer, to not create GOD objects
     # tick, system time is set to 10
     time_function: Callable[[], float] = lambda: 11.0
     # we are interested in last 5 seconds
@@ -72,6 +73,7 @@ def test_select_spread():
     trader = MonteCarloTrader(window=window, time_function=time_function)
 
     percentages = [
+        # (depth ratio, [bid occurrence %, ask occurrence%])
         (Decimal('0.0003'), [0.17, 0.0]),
         (Decimal('0.0002'), [0.33, 0.0]),
         (Decimal('0.0001'), [0.5, 0.0]),
@@ -80,6 +82,10 @@ def test_select_spread():
         (Decimal('-0.0003'), [0.17, 0.17]),
     ]
 
+    # assert what if we satisfied with N% occurrence, what are the depths we should shoot for?
+    # N% = 30%
     assert trader.select_best_depth(0.3, percentages) == (Decimal('0.0002'), Decimal('-0.0001'))
+    # N% = 50%
     assert trader.select_best_depth(0.5, percentages) == (Decimal('0.0001'), Decimal('-0.0001'))
+    # N% = 70%
     assert trader.select_best_depth(0.7, percentages) == (None, None)

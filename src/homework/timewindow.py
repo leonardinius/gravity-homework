@@ -18,10 +18,13 @@ class SlidingWindow(Generic[T]):
     def put(self, timestamp: float, value: T) -> SlidingWindow[T]:
         if self._matches(timestamp):
             self._list.append((timestamp, value))
+
+        # Premature? optimization: to amortize the removal of out of time window elements
         self._pack0()
         return self
 
     def pack(self) -> list[tuple[float, T]]:
+        # TODO: review, it likely can be performance issue here
         self._list = sorted(self._list, key=lambda item: item[0])
         self._pack0()
         return self._list
