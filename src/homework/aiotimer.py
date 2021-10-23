@@ -20,5 +20,5 @@ class Timer:
             await asyncio.sleep(self._timeout)
             await self._callback()
 
-    def cancel(self):
+    async def cancel(self):
         self._task.cancel()

@@ -1,4 +1,6 @@
+import logging
 import time
+import timeit
 from decimal import Decimal, localcontext
 from typing import Tuple
 
@@ -41,12 +43,15 @@ class MonteCarloTrader:
         self._window.put(placed_at, bid_oder)
 
     def tick_observe_trade(self, price: Decimal) -> None:
+        ts = time.time_ns()
         for _time, order in self._window.pack():
             if not order.fulfilled:
                 if order.side == Side.BID and price <= order.price:
                     order.fulfilled = True
                 if order.side == Side.ASK and price >= order.price:
                     order.fulfilled = True
+        ts = time.time_ns() - ts
+        logging.debug(f'time={ts!r}ns')
 
     def calculate_percentage(self,
                              side: Side,

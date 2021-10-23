@@ -54,7 +54,7 @@ def test_smoke_test_percentage_calculations():
                ]),
            ] == [
                # (depth ratio, [bid occurrence %, ask occurrence%])
-               ('-0.0003', [0.17, 0.17]),
+               ('', [0.17, 0.17]),
                ('-0.0002', [0.33, 0.33]),
                ('-0.0001', [0.5, 0.5]),
                ('0.0003', [0.17, 0.0]),
