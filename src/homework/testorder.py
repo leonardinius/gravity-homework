@@ -7,12 +7,12 @@ class Side(Enum):
     ASK = 1
     BID = 2
 
-    # def diff_ratio(self, best_price: Decimal, order_price: Decimal):
-    #     if self == Side.BID:
-    #         return - (order_price - best_price) / best_price
-    #     if self == Side.ASK:
-    #         return (best_price - order_price) / best_price
-    #     raise RuntimeError('Logic exception')
+    def price_with_depth(self, price_depth: Decimal, best_price: Decimal):
+        if self == Side.BID:
+            return best_price - best_price * price_depth
+        if self == Side.ASK:
+            return best_price + best_price * price_depth
+        raise RuntimeError('Logic exception')
 
 
 @dataclass

@@ -9,7 +9,7 @@ from binance.streams import ReconnectingWebsocket
 
 from aiotimer import Timer
 from montecarlotrader import MonteCarloTrader
-from testorder import TestOrder
+from testorder import TestOrder, Side
 from timewindow import SlidingWindow
 
 REPORT_MAIN_BET_FREQUENCY_SECONDS = 2
@@ -85,8 +85,15 @@ class MainApp:
         logging.debug(f'TRADE/PRICE price={price!r} bid_spread={bid_spread!r} ask_spread={ask_spread!r}')
         self._trader.tick_observe_trade(price)
 
-    async def report_bet_for_threshold(self, threshold: float) -> Tuple[Decimal, Decimal]:
-        return self._trader.select_best_depth(threshold)
+    async def report_bet_for_threshold(self,
+                                       threshold: float,
+                                       best_bid_price: Decimal,
+                                       best_ask_price: Decimal) -> Tuple[Decimal, Decimal]:
+        best_bid_depth, best_ask_depth = self._trader.select_best_depth(threshold)
+        return (
+            Side.BID.price_with_depth(best_bid_depth, best_bid_price),
+            Side.ASK.price_with_depth(best_ask_depth, best_ask_price),
+        )
 
     async def handle_timer_tick(self) -> None:
         if self._has_init_price:
@@ -132,8 +139,10 @@ class MainApp:
         await self.handle_timer_tick()
 
     async def _report_handler(self):
-        bid, ask = await self.report_bet_for_threshold(REPORT_MAIN_BET_THRESHOLD)
-        logging.error(f'BET bid={bid} ask={ask} / best_bid={self._best_bid_price} best_ask={self._best_ask_price}')
+        best_bid_price = self._best_bid_price
+        best_ask_price = self._best_ask_price
+        bid, ask = await self.report_bet_for_threshold(REPORT_MAIN_BET_THRESHOLD, best_bid_price, best_ask_price)
+        logging.error(f'BET bid={bid} ask={ask} / best_bid={best_bid_price} best_ask={best_ask_price}')
         pass
 
     async def run(self) -> None:

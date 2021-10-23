@@ -28,17 +28,17 @@ class MonteCarloTrader:
         placed_at = self._time()
         with localcontext() as ctx:
             ctx.prec = self._precision
-            ask_oder = TestOrder(
-                placed_at=placed_at,
-                side=Side.ASK,
-                price_depth=price_depth,
-                price=best_ask_price + (best_ask_price * price_depth),
-            )
             bid_oder = TestOrder(
                 placed_at=placed_at,
                 side=Side.BID,
                 price_depth=price_depth,
-                price=best_bid_price - best_bid_price * price_depth,
+                price=Side.BID.price_with_depth(price_depth, best_bid_price),
+            )
+            ask_oder = TestOrder(
+                placed_at=placed_at,
+                side=Side.ASK,
+                price_depth=price_depth,
+                price=Side.ASK.price_with_depth(price_depth, best_ask_price),
             )
         self._window.put(placed_at, ask_oder)
         self._window.put(placed_at, bid_oder)
