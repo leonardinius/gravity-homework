@@ -85,8 +85,8 @@ class MainApp:
         logging.debug(f'TRADE/PRICE price={price!r} bid_spread={bid_spread!r} ask_spread={ask_spread!r}')
         self._trader.tick_observe_trade(price)
 
-    async def report_bet_for_threshlod(self, threshold: float) -> Tuple[Decimal, Decimal]:
-        return Decimal(0), Decimal(0)
+    async def report_bet_for_threshold(self, threshold: float) -> Tuple[Decimal, Decimal]:
+        return self._trader.select_best_depth(threshold)
 
     async def handle_timer_tick(self) -> None:
         if self._has_init_price:
@@ -132,7 +132,7 @@ class MainApp:
         await self.handle_timer_tick()
 
     async def _report_handler(self):
-        bid, ask = await self.report_bet_for_threshlod(REPORT_MAIN_BET_THRESHOLD)
+        bid, ask = await self.report_bet_for_threshold(REPORT_MAIN_BET_THRESHOLD)
         logging.error(f'BET bid={bid} ask={ask} / best_bid={self._best_bid_price} best_ask={self._best_ask_price}')
         pass
 

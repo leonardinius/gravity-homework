@@ -1,8 +1,7 @@
 import logging
 import time
-import timeit
 from decimal import Decimal, localcontext
-from typing import Tuple
+from typing import Tuple, Set, Dict
 
 from homework.testorder import TestOrder, Side
 from homework.timewindow import SlidingWindow
@@ -11,6 +10,7 @@ from homework.timewindow import SlidingWindow
 class MonteCarloTrader:
     _window: SlidingWindow[TestOrder]
     _precision: int
+    _depths: Set[Decimal]
 
     # precision = '62478.89000000'
     #              12345.67890123
@@ -18,6 +18,7 @@ class MonteCarloTrader:
         self._window = window
         self._time = time_function
         self._precision = precision
+        self._depths = set()
 
     def tick_place_order(self,
                          price_depth: Decimal,
@@ -41,6 +42,10 @@ class MonteCarloTrader:
             )
         self._window.put(placed_at, ask_oder)
         self._window.put(placed_at, bid_oder)
+        self._depths.add(price_depth)
+
+    def depths(self) -> Set[Decimal]:
+        return self._depths.copy()
 
     def tick_observe_trade(self, price: Decimal) -> None:
         ts = time.time_ns()
@@ -53,24 +58,39 @@ class MonteCarloTrader:
         ts = time.time_ns() - ts
         logging.debug(f'time={ts!r}ns')
 
-    def calculate_percentage(self,
-                             side: Side,
-                             price_depth: Decimal) -> float:
-        side_total = 0
-        depth_fulfilled_match = 0
-        for _time, order in self._window.pack():
-            if order.side == side:
-                side_total += 1
+    def calculate_percentile_thresholds(self) -> Dict[Decimal, Tuple[float, float]]:
+        all_orders = self._window.pack().copy()
+        all_depths = self.depths()
+
+        all_counters: Dict[Decimal, Tuple[int, int]] = dict()
+        for _time, order in all_orders:
+            for price_depth in all_depths:
+                counter = all_counters.get(price_depth, (0, 0))
                 if order.fulfilled \
                         and price_depth.is_signed() == order.price_depth.is_signed() \
                         and price_depth.__abs__() <= order.price_depth.__abs__():
-                    depth_fulfilled_match += 1
-        return depth_fulfilled_match / side_total
+                    bid_counter, ask_counter = counter
+                    if order.side == Side.BID:
+                        bid_counter += 1
+                    if order.side == Side.ASK:
+                        ask_counter += 1
+                    counter = (bid_counter, ask_counter)
+                all_counters[price_depth] = counter
 
-    def select_best_depth(self,
-                          percentile_threshold: float,
-                          percentages: list[Tuple[Decimal, list[Decimal]]]):
-        percentages = sorted(percentages, key=lambda item: - item[0])
-        bid = next(filter(lambda item: item[1][0] >= percentile_threshold, percentages), (None, []))
-        ask = next(filter(lambda item: item[1][1] >= percentile_threshold, percentages), (None, []))
+        side_size = int(len(all_orders) / 2)
+        percentages: Dict[Decimal, Tuple[float, float]] = dict()
+        for price_depth in all_depths:
+            bid_matched, ask_matched = all_counters[price_depth]
+            percentage = (
+                bid_matched / side_size,
+                ask_matched / side_size
+            )
+            percentages[price_depth] = percentage
+
+        return percentages
+
+    def select_best_depth(self, threshold: float):
+        percentages = sorted(self.calculate_percentile_thresholds().items(), key=lambda item: -1 * item[0])
+        bid = next(filter(lambda item: item[1][0] >= threshold, percentages), (None, []))
+        ask = next(filter(lambda item: item[1][1] >= threshold, percentages), (None, []))
         return bid[0], ask[0],
