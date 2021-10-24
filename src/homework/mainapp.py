@@ -15,13 +15,13 @@ from timewindow import SlidingWindow
 #              12345.67890123
 # precision means significant digits
 PAIR_PRECISION = 7
-REPORT_MAIN_BET_FREQUENCY_SECONDS = 5
-REPORT_MAIN_BET_THRESHOLD = 0.49
+REPORT_MAIN_BET_FREQUENCY_SECONDS = 10
+REPORT_MAIN_BET_THRESHOLD = 0.5
 
-TRADES_OBSERVE_TIME_WINDOWS_SECONDS = 60
-TRADES_BETS_FREQUENCY_SECONDS = 300 / 1000
+TRADES_OBSERVE_TIME_WINDOWS_SECONDS = 15
+TRADES_BETS_FREQUENCY_SECONDS = 200 / 1000
 TRADES_DEPTH_THRESHOLDS = (Decimal('-0.0005'), Decimal('0.0005'))
-TRADES_DEPTH_RATIO_STEP = Decimal('0.000035')
+TRADES_DEPTH_RATIO_STEP = Decimal('0.0000035')
 
 
 class MainApp:
@@ -96,12 +96,22 @@ class MainApp:
         pass
 
     async def _place_order_bets(self):
-        depth_ratio, end = TRADES_DEPTH_THRESHOLDS
+        start, end = TRADES_DEPTH_THRESHOLDS
         step = TRADES_DEPTH_RATIO_STEP
-        while depth_ratio < end:
-            if not depth_ratio.is_zero():
-                self._trader.tick_place_order(depth_ratio, self._best_bid_price, self._best_ask_price)
-            depth_ratio += step
+
+        counter = 0
+        depth = start
+        while depth < Decimal(0):
+            depth += step * counter
+            self._trader.tick_place_order(depth, self._best_bid_price, self._best_ask_price)
+            counter += 1
+
+        counter = 0
+        depth = step
+        while depth < end:
+            depth += step * counter
+            self._trader.tick_place_order(depth, self._best_bid_price, self._best_ask_price)
+            counter += 1
         pass
 
     async def _handle_ticker_ws(self, ticker_stream: ReconnectingWebsocket) -> None:
@@ -147,14 +157,15 @@ class MainApp:
             bet_ask = Side.BID.price_with_depth(best_ask_depth, best_ask_price, self._trader.precision())
         else:
             bet_ask = best_ask_price
-        logging.info(
-            f'DEBUG: best_bid_depth={best_bid_depth} best_ask_depth={best_ask_depth}')
+
+        logging.debug(f'DEBUG: best_bid_depth={best_bid_depth} best_ask_depth={best_ask_depth}')
         logging.error(f'bet={{bid={bet_bid} ask={bet_ask}}} // best={{bid={best_bid_price} ask={best_ask_price}}}')
         pass
 
     async def run(self) -> None:
         logging.info('Binance API Key: %s...%s' % (self._binance_api_key[:3], self._binance_api_key[-3:]))
         logging.info(f'Symbol pair: {self.pair()}')
+        logging.info(f'Please wait approximately {REPORT_MAIN_BET_FREQUENCY_SECONDS} seconds')
         binance_api_client = await AsyncClient.create(
             api_key=self._binance_api_key,
             api_secret=self._binance_api_secret,

@@ -90,6 +90,7 @@ class MonteCarloTrader:
 
     def select_best_depth(self, threshold: float):
         thresholds = self.calculate_percentile_thresholds()
+        threshold -= 0.1  # cheat, most of the frequencies come in 0.4 range
         # by_percentages_bid = sorted(thresholds.items(), key=lambda item: -1 * item[1][0])
         # by_percentages_ask = sorted(thresholds.items(), key=lambda item: -1 * item[1][1])
         # best_bid = (by_percentages_bid[0][0], by_percentages_bid[0][1][0])
