@@ -38,3 +38,6 @@ class SlidingWindow(Generic[T]):
 
     def _matches(self, occurred_at: float) -> bool:
         return self._time() - occurred_at <= self._seconds
+
+    def len(self):
+        return len(self._list)

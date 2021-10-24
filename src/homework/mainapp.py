@@ -1,7 +1,6 @@
 import asyncio
 import logging
 from decimal import Decimal
-from typing import Tuple
 
 from binance import BinanceSocketManager
 from binance.client import AsyncClient
@@ -12,13 +11,17 @@ from montecarlotrader import MonteCarloTrader
 from testorder import TestOrder, Side
 from timewindow import SlidingWindow
 
-REPORT_MAIN_BET_FREQUENCY_SECONDS = 2
-REPORT_MAIN_BET_THRESHOLD = 0.5
+# precision = '62478.89000000'
+#              12345.67890123
+# precision means significant digits
+PAIR_PRECISION = 7
+REPORT_MAIN_BET_FREQUENCY_SECONDS = 5
+REPORT_MAIN_BET_THRESHOLD = 0.49
 
-TRADES_OBSERVE_TIME_WINDOWS_SECONDS = 300
-TRADES_BETS_FREQUENCY_SECONDS = 50 / 1000
-TRADES_DEPTH_THRESHOLDS = (Decimal('-0.0003'), Decimal('0.0003'))
-TRADES_DEPTH_RATIO_STEP = Decimal('0.0001')
+TRADES_OBSERVE_TIME_WINDOWS_SECONDS = 60
+TRADES_BETS_FREQUENCY_SECONDS = 300 / 1000
+TRADES_DEPTH_THRESHOLDS = (Decimal('-0.0005'), Decimal('0.0005'))
+TRADES_DEPTH_RATIO_STEP = Decimal('0.000035')
 
 
 class MainApp:
@@ -35,7 +38,9 @@ class MainApp:
         self._binance_api_secret = binance_api_secret
         self._pair = pair
         self._pair = pair
-        self._trader = MonteCarloTrader(SlidingWindow[TestOrder](TRADES_OBSERVE_TIME_WINDOWS_SECONDS))
+        self._trader = MonteCarloTrader(
+            window=SlidingWindow[TestOrder](TRADES_OBSERVE_TIME_WINDOWS_SECONDS),
+            precision=PAIR_PRECISION)
 
     def pair(self):
         return self._pair
@@ -58,7 +63,7 @@ class MainApp:
         self._best_ask_price = Decimal(ticker_json['a'])
         self._has_init_price = True
         spread = self._best_ask_price - self._best_bid_price
-        logging.debug(f'TICKER/PRICE bid={self._best_bid_price!r} ask={self._best_ask_price!r} spread={spread!r}')
+        logging.debug(f'TICKER/PRICE bid={self._best_bid_price} ask={self._best_ask_price} spread={spread}')
 
     async def handle_trades_payload(self, trades_json) -> None:
         """
@@ -82,18 +87,8 @@ class MainApp:
         price = Decimal(trades_json['p'])
         bid_spread = self._best_bid_price - price
         ask_spread = self._best_ask_price - price
-        logging.debug(f'TRADE/PRICE price={price!r} bid_spread={bid_spread!r} ask_spread={ask_spread!r}')
+        logging.debug(f'TRADE/PRICE price={price} bid_spread={bid_spread} ask_spread={ask_spread}')
         self._trader.tick_observe_trade(price)
-
-    async def report_bet_for_threshold(self,
-                                       threshold: float,
-                                       best_bid_price: Decimal,
-                                       best_ask_price: Decimal) -> Tuple[Decimal, Decimal]:
-        best_bid_depth, best_ask_depth = self._trader.select_best_depth(threshold)
-        return (
-            Side.BID.price_with_depth(best_bid_depth, best_bid_price),
-            Side.ASK.price_with_depth(best_ask_depth, best_ask_price),
-        )
 
     async def handle_timer_tick(self) -> None:
         if self._has_init_price:
@@ -104,7 +99,8 @@ class MainApp:
         depth_ratio, end = TRADES_DEPTH_THRESHOLDS
         step = TRADES_DEPTH_RATIO_STEP
         while depth_ratio < end:
-            self._trader.tick_place_order(depth_ratio, self._best_bid_price, self._best_ask_price)
+            if not depth_ratio.is_zero():
+                self._trader.tick_place_order(depth_ratio, self._best_bid_price, self._best_ask_price)
             depth_ratio += step
         pass
 
@@ -141,8 +137,19 @@ class MainApp:
     async def _report_handler(self):
         best_bid_price = self._best_bid_price
         best_ask_price = self._best_ask_price
-        bid, ask = await self.report_bet_for_threshold(REPORT_MAIN_BET_THRESHOLD, best_bid_price, best_ask_price)
-        logging.error(f'BET bid={bid} ask={ask} / best_bid={best_bid_price} best_ask={best_ask_price}')
+
+        best_bid_depth, best_ask_depth = self._trader.select_best_depth(REPORT_MAIN_BET_THRESHOLD)
+        if best_bid_depth:
+            bet_bid = Side.BID.price_with_depth(best_bid_depth, best_bid_price, self._trader.precision())
+        else:
+            bet_bid = best_bid_price
+        if best_ask_depth:
+            bet_ask = Side.BID.price_with_depth(best_ask_depth, best_ask_price, self._trader.precision())
+        else:
+            bet_ask = best_ask_price
+        logging.info(
+            f'DEBUG: best_bid_depth={best_bid_depth} best_ask_depth={best_ask_depth}')
+        logging.error(f'bet={{bid={bet_bid} ask={bet_ask}}} // best={{bid={best_bid_price} ask={best_ask_price}}}')
         pass
 
     async def run(self) -> None:

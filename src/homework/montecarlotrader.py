@@ -1,6 +1,6 @@
 import logging
 import time
-from decimal import Decimal, localcontext
+from decimal import Decimal
 from typing import Tuple, Set, Dict
 
 from homework.testorder import TestOrder, Side
@@ -12,8 +12,6 @@ class MonteCarloTrader:
     _precision: int
     _depths: Set[Decimal]
 
-    # precision = '62478.89000000'
-    #              12345.67890123
     def __init__(self, window: SlidingWindow[TestOrder], time_function=time.time, precision: int = 13) -> None:
         self._window = window
         self._time = time_function
@@ -26,26 +24,27 @@ class MonteCarloTrader:
                          best_ask_price: Decimal,
                          ) -> None:
         placed_at = self._time()
-        with localcontext() as ctx:
-            ctx.prec = self._precision
-            bid_oder = TestOrder(
-                placed_at=placed_at,
-                side=Side.BID,
-                price_depth=price_depth,
-                price=Side.BID.price_with_depth(price_depth, best_bid_price),
-            )
-            ask_oder = TestOrder(
-                placed_at=placed_at,
-                side=Side.ASK,
-                price_depth=price_depth,
-                price=Side.ASK.price_with_depth(price_depth, best_ask_price),
-            )
+        bid_oder = TestOrder(
+            placed_at=placed_at,
+            side=Side.BID,
+            price_depth=price_depth,
+            price=Side.BID.price_with_depth(price_depth, best_bid_price, self._precision),
+        )
+        ask_oder = TestOrder(
+            placed_at=placed_at,
+            side=Side.ASK,
+            price_depth=price_depth,
+            price=Side.ASK.price_with_depth(price_depth, best_ask_price, self._precision),
+        )
         self._window.put(placed_at, ask_oder)
         self._window.put(placed_at, bid_oder)
         self._depths.add(price_depth)
 
     def depths(self) -> Set[Decimal]:
         return self._depths.copy()
+
+    def precision(self) -> int:
+        return self._precision
 
     def tick_observe_trade(self, price: Decimal) -> None:
         ts = time.time_ns()
@@ -90,7 +89,14 @@ class MonteCarloTrader:
         return percentages
 
     def select_best_depth(self, threshold: float):
-        percentages = sorted(self.calculate_percentile_thresholds().items(), key=lambda item: -1 * item[0])
+        thresholds = self.calculate_percentile_thresholds()
+        # by_percentages_bid = sorted(thresholds.items(), key=lambda item: -1 * item[1][0])
+        # by_percentages_ask = sorted(thresholds.items(), key=lambda item: -1 * item[1][1])
+        # best_bid = (by_percentages_bid[0][0], by_percentages_bid[0][1][0])
+        # best_ask = (by_percentages_ask[0][0], by_percentages_ask[0][1][1])
+        # logging.info(f'select_best_depth len={self._window.len()} best_bid={best_bid!r} best_ask={best_ask!r}')
+
+        percentages = sorted(thresholds.items(), key=lambda item: -1 * item[0])
         bid = next(filter(lambda item: item[1][0] >= threshold, percentages), (None, []))
         ask = next(filter(lambda item: item[1][1] >= threshold, percentages), (None, []))
         return bid[0], ask[0],
