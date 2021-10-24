@@ -7,13 +7,13 @@ class Side(Enum):
     ASK = 1
     BID = 2
 
-    def price_with_spread(self, spread: Decimal, best_price: Decimal, precision: int):
+    def price_with_depth(self, price_depth: Decimal, best_price: Decimal, precision: int):
         with localcontext() as ctx:
             ctx.prec = precision
             if self == Side.BID:
-                return best_price - spread
+                return best_price - best_price * price_depth
             if self == Side.ASK:
-                return best_price + spread
+                return best_price + best_price * price_depth
             raise RuntimeError('Logic exception')
 
 
@@ -23,5 +23,5 @@ class TestOrder:
     side: Side
     price: Decimal
     # quantity: Decimal
-    spread: Decimal
+    price_depth: Decimal
     fulfilled: bool = False
