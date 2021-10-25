@@ -22,6 +22,19 @@ pip install -e '.[tests]'
 cd src/homework && python main.py
 ```
 
+Example output
+```
+2021-10-25 09:44:01,511 - INFO - Symbol pair: BTCUSDT
+2021-10-25 09:44:01,511 - INFO - Please wait approximately 10 seconds
+2021-10-25 09:44:12,403 - ERROR - bet={bid=62004.44 ask=62004.45} // best={bid=62000.04000000 ask=62000.05000000}
+2021-10-25 09:44:22,482 - ERROR - bet={bid=62004.44 ask=62004.45} // best={bid=62000.04000000 ask=62000.05000000}
+2021-10-25 09:44:32,585 - ERROR - bet={bid=62006.07 ask=62006.08} // best={bid=62001.67000000 ask=62001.68000000}
+2021-10-25 09:44:42,695 - ERROR - bet={bid=62032.41 ask=62032.42} // best={bid=62028.01000000 ask=62028.02000000}
+2021-10-25 09:44:52,843 - ERROR - bet={bid=62052.85 ask=62048.11} // best={bid=62048.44000000 ask=62048.45000000}
+```
+bet - calculate at what price you should place an order, so that with 50% probability it would be filled in next 10 seconds.
+best - best bid, best ask price
+
 ## Solution
 
 ### Assumptions
